@@ -3,7 +3,7 @@ import { toast } from 'sonner'
 import { hotelServices } from '@/core/application/services'
 import type { CreateHotelPayload, UpdateHotelPayload } from '@/core/domain/hotel'
 
-export const HOTELS_QUERY_KEY = ['hotels'] as const
+const HOTELS_QUERY_KEY = ['hotels'] as const
 
 export function useHotels() {
   return useQuery({

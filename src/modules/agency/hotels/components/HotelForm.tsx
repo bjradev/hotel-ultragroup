@@ -22,7 +22,7 @@ import {
 import { LoadingSpinner } from '@/shared/components/common/LoadingSpinner'
 import type { Hotel } from '@/core/domain/hotel'
 
-export type HotelFormValues = {
+type HotelFormValues = {
   name: string
   description: string
   city: string

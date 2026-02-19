@@ -18,7 +18,3 @@ export type Room = {
 export type CreateRoomPayload = Omit<Room, 'id' | 'createdAt' | 'updatedAt'>
 
 export type UpdateRoomPayload = Partial<Omit<Room, 'id' | 'hotelId' | 'createdAt' | 'updatedAt'>>
-
-export function calculateRoomTotalCost(room: Pick<Room, 'baseCost' | 'taxes'>): number {
-  return room.baseCost + room.taxes
-}

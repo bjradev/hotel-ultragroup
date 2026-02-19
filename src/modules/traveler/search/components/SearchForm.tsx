@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useReducer } from 'react'
 import { Search, MapPin, CalendarIcon } from 'lucide-react'
 import { Button } from '@/shared/components/ui/button'
 import { Input } from '@/shared/components/ui/input'
@@ -13,6 +13,25 @@ type SearchFormProps = {
   isLoading?: boolean
 }
 
+type FormErrors = { city?: string; checkIn?: string; checkOut?: string }
+
+type SearchFormState = {
+  city: string
+  checkIn: Date | undefined
+  checkOut: Date | undefined
+  checkInOpen: boolean
+  checkOutOpen: boolean
+  errors: FormErrors
+}
+
+type SearchFormAction =
+  | { type: 'SET_CITY'; city: string }
+  | { type: 'SELECT_CHECK_IN'; date: Date }
+  | { type: 'SELECT_CHECK_OUT'; date: Date }
+  | { type: 'TOGGLE_CHECK_IN_POPOVER'; open: boolean }
+  | { type: 'TOGGLE_CHECK_OUT_POPOVER'; open: boolean }
+  | { type: 'SET_ERRORS'; errors: FormErrors }
+
 function addDays(date: Date, days: number): Date {
   const result = new Date(date)
   result.setDate(result.getDate() + days)
@@ -23,66 +42,81 @@ function formatDisplayDate(date: Date): string {
   return date.toLocaleDateString('es-CO', { day: 'numeric', month: 'short', year: 'numeric' })
 }
 
+function searchFormReducer(state: SearchFormState, action: SearchFormAction): SearchFormState {
+  switch (action.type) {
+    case 'SET_CITY':
+      return { ...state, city: action.city, errors: { ...state.errors, city: undefined } }
+    case 'SELECT_CHECK_IN': {
+      const checkOut =
+        !state.checkOut || state.checkOut <= action.date
+          ? addDays(action.date, 1)
+          : state.checkOut
+      return {
+        ...state,
+        checkIn: action.date,
+        checkOut,
+        checkInOpen: false,
+        errors: { ...state.errors, checkIn: undefined },
+      }
+    }
+    case 'SELECT_CHECK_OUT':
+      return {
+        ...state,
+        checkOut: action.date,
+        checkOutOpen: false,
+        errors: { ...state.errors, checkOut: undefined },
+      }
+    case 'TOGGLE_CHECK_IN_POPOVER':
+      return { ...state, checkInOpen: action.open }
+    case 'TOGGLE_CHECK_OUT_POPOVER':
+      return { ...state, checkOutOpen: action.open }
+    case 'SET_ERRORS':
+      return { ...state, errors: action.errors }
+  }
+}
+
 export function SearchForm({ onSearch, isLoading }: SearchFormProps) {
   const { searchCity, checkIn: storeCheckIn, checkOut: storeCheckOut } = useBookingStore()
 
-  const [city, setCity] = useState(searchCity)
-  const [checkIn, setCheckIn] = useState<Date | undefined>(storeCheckIn ?? undefined)
-  const [checkOut, setCheckOut] = useState<Date | undefined>(storeCheckOut ?? undefined)
-  const [checkInOpen, setCheckInOpen] = useState(false)
-  const [checkOutOpen, setCheckOutOpen] = useState(false)
-  const [errors, setErrors] = useState<{ city?: string; checkIn?: string; checkOut?: string }>({})
+  const [state, dispatch] = useReducer(searchFormReducer, {
+    city: searchCity,
+    checkIn: storeCheckIn ?? undefined,
+    checkOut: storeCheckOut ?? undefined,
+    checkInOpen: false,
+    checkOutOpen: false,
+    errors: {},
+  })
 
   const today = new Date()
   today.setHours(0, 0, 0, 0)
 
-  function handleCheckInSelect(date: Date | undefined) {
-    if (!date) return
-    setCheckIn(date)
-    if (errors.checkIn) setErrors((p) => ({ ...p, checkIn: undefined }))
-
-    // Auto-asignar check-out = check-in + 1 día (estilo booking.com)
-    if (!checkOut || checkOut <= date) {
-      setCheckOut(addDays(date, 1))
-    }
-    setCheckInOpen(false)
-  }
-
-  function handleCheckOutSelect(date: Date | undefined) {
-    if (!date) return
-    setCheckOut(date)
-    if (errors.checkOut) setErrors((p) => ({ ...p, checkOut: undefined }))
-    setCheckOutOpen(false)
-  }
-
-  function validate() {
-    const newErrors: typeof errors = {}
-    if (!city.trim()) newErrors.city = 'La ciudad es requerida'
-    if (!checkIn) newErrors.checkIn = 'La fecha de entrada es requerida'
-    if (checkOut && checkIn && checkOut <= checkIn) {
+  function validate(): boolean {
+    const newErrors: FormErrors = {}
+    if (!state.city.trim()) newErrors.city = 'La ciudad es requerida'
+    if (!state.checkIn) newErrors.checkIn = 'La fecha de entrada es requerida'
+    if (state.checkOut && state.checkIn && state.checkOut <= state.checkIn) {
       newErrors.checkOut = 'La salida debe ser posterior a la entrada'
     }
-    setErrors(newErrors)
+    dispatch({ type: 'SET_ERRORS', errors: newErrors })
     return Object.keys(newErrors).length === 0
   }
 
   function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
-    if (!validate() || !checkIn) return
-    const checkInDate = new Date(checkIn)
+    if (!validate() || !state.checkIn) return
+    const checkInDate = new Date(state.checkIn)
     checkInDate.setHours(14, 0, 0, 0)
     let checkOutDate: Date | undefined
-    if (checkOut) {
-      checkOutDate = new Date(checkOut)
+    if (state.checkOut) {
+      checkOutDate = new Date(state.checkOut)
       checkOutDate.setHours(12, 0, 0, 0)
     }
-    onSearch(city.trim(), checkInDate, checkOutDate)
+    onSearch(state.city.trim(), checkInDate, checkOutDate)
   }
 
   return (
     <form onSubmit={handleSubmit} className="bg-card border rounded-xl p-6 shadow-sm">
       <div className="grid grid-cols-1 md:grid-cols-[1fr_auto_auto_auto] gap-4 items-end">
-        {/* Ciudad */}
         <div className="space-y-1.5">
           <Label htmlFor="city" className="flex items-center gap-1.5 text-xs font-medium">
             <MapPin className="h-3.5 w-3.5 text-muted-foreground" />
@@ -91,87 +125,91 @@ export function SearchForm({ onSearch, isLoading }: SearchFormProps) {
           <Input
             id="city"
             placeholder="Bogotá, Medellín, Cartagena..."
-            value={city}
-            onChange={(e) => {
-              setCity(e.target.value)
-              if (errors.city) setErrors((p) => ({ ...p, city: undefined }))
-            }}
-            aria-invalid={Boolean(errors.city)}
+            value={state.city}
+            onChange={(e) => dispatch({ type: 'SET_CITY', city: e.target.value })}
+            aria-invalid={Boolean(state.errors.city)}
             className="h-10"
           />
-          {errors.city && <p className="text-xs text-destructive">{errors.city}</p>}
+          {state.errors.city && <p className="text-xs text-destructive">{state.errors.city}</p>}
         </div>
 
-        {/* Check-in */}
         <div className="space-y-1.5 min-w-44">
           <Label className="flex items-center gap-1.5 text-xs font-medium">
             <CalendarIcon className="h-3.5 w-3.5 text-muted-foreground" />
             Entrada <span className="text-destructive">*</span>
           </Label>
-          <Popover open={checkInOpen} onOpenChange={setCheckInOpen}>
+          <Popover
+            open={state.checkInOpen}
+            onOpenChange={(open) => dispatch({ type: 'TOGGLE_CHECK_IN_POPOVER', open })}
+          >
             <PopoverTrigger asChild>
               <Button
                 variant="outline"
                 className={cn(
                   'h-10 w-full justify-start text-left font-normal',
-                  !checkIn && 'text-muted-foreground',
-                  errors.checkIn && 'border-destructive',
+                  !state.checkIn && 'text-muted-foreground',
+                  state.errors.checkIn && 'border-destructive',
                 )}
               >
                 <CalendarIcon className="mr-2 h-4 w-4" />
-                {checkIn ? formatDisplayDate(checkIn) : 'Seleccionar'}
+                {state.checkIn ? formatDisplayDate(state.checkIn) : 'Seleccionar'}
               </Button>
             </PopoverTrigger>
             <PopoverContent className="w-auto p-0" align="start">
               <Calendar
                 mode="single"
-                selected={checkIn}
-                onSelect={handleCheckInSelect}
+                selected={state.checkIn}
+                onSelect={(date) => date && dispatch({ type: 'SELECT_CHECK_IN', date })}
                 disabled={{ before: today }}
-                defaultMonth={checkIn ?? today}
+                defaultMonth={state.checkIn ?? today}
                 className="rounded-md border"
               />
             </PopoverContent>
           </Popover>
-          {errors.checkIn && <p className="text-xs text-destructive">{errors.checkIn}</p>}
+          {state.errors.checkIn && (
+            <p className="text-xs text-destructive">{state.errors.checkIn}</p>
+          )}
         </div>
 
-        {/* Check-out */}
         <div className="space-y-1.5 min-w-44">
           <Label className="flex items-center gap-1.5 text-xs font-medium">
             <CalendarIcon className="h-3.5 w-3.5 text-muted-foreground" />
             Salida{' '}
             <span className="text-muted-foreground font-normal">(opcional)</span>
           </Label>
-          <Popover open={checkOutOpen} onOpenChange={setCheckOutOpen}>
+          <Popover
+            open={state.checkOutOpen}
+            onOpenChange={(open) => dispatch({ type: 'TOGGLE_CHECK_OUT_POPOVER', open })}
+          >
             <PopoverTrigger asChild>
               <Button
                 variant="outline"
                 className={cn(
                   'h-10 w-full justify-start text-left font-normal',
-                  !checkOut && 'text-muted-foreground',
-                  errors.checkOut && 'border-destructive',
+                  !state.checkOut && 'text-muted-foreground',
+                  state.errors.checkOut && 'border-destructive',
                 )}
               >
                 <CalendarIcon className="mr-2 h-4 w-4" />
-                {checkOut ? formatDisplayDate(checkOut) : 'Seleccionar'}
+                {state.checkOut ? formatDisplayDate(state.checkOut) : 'Seleccionar'}
               </Button>
             </PopoverTrigger>
             <PopoverContent className="w-auto p-0" align="start">
               <Calendar
                 mode="single"
-                selected={checkOut}
-                onSelect={handleCheckOutSelect}
-                disabled={{ before: checkIn ? addDays(checkIn, 1) : today }}
-                defaultMonth={checkOut ?? (checkIn ? addDays(checkIn, 1) : today)}
+                selected={state.checkOut}
+                onSelect={(date) => date && dispatch({ type: 'SELECT_CHECK_OUT', date })}
+                disabled={{ before: state.checkIn ? addDays(state.checkIn, 1) : today }}
+                defaultMonth={state.checkOut ?? (state.checkIn ? addDays(state.checkIn, 1) : today)}
                 className="rounded-md border"
               />
             </PopoverContent>
           </Popover>
-          {errors.checkOut && <p className="text-xs text-destructive">{errors.checkOut}</p>}
+          {state.errors.checkOut && (
+            <p className="text-xs text-destructive">{state.errors.checkOut}</p>
+          )}
         </div>
 
-        {/* Submit */}
         <Button type="submit" disabled={isLoading} className="h-10 gap-2 min-w-32">
           <Search className="h-4 w-4" />
           {isLoading ? 'Buscando...' : 'Buscar'}

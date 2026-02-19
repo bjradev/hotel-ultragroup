@@ -15,15 +15,6 @@ export function formatDate(date: Date): string {
   }).format(date)
 }
 
-export function formatDateLong(date: Date): string {
-  return new Intl.DateTimeFormat('es-CO', {
-    weekday: 'long',
-    year: 'numeric',
-    month: 'long',
-    day: 'numeric',
-  }).format(date)
-}
-
 export function formatNights(checkIn: Date, checkOut: Date): number {
   return Math.ceil((checkOut.getTime() - checkIn.getTime()) / (1000 * 60 * 60 * 24))
 }

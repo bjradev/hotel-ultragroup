@@ -3,7 +3,7 @@ import { toast } from 'sonner'
 import { roomServices } from '@/core/application/services'
 import type { CreateRoomPayload, UpdateRoomPayload } from '@/core/domain/room'
 
-export const roomsQueryKey = (hotelId: string) => ['rooms', hotelId] as const
+const roomsQueryKey = (hotelId: string) => ['rooms', hotelId] as const
 
 export function useRoomsByHotel(hotelId: string) {
   return useQuery({

@@ -16,7 +16,7 @@ export function PageBreadcrumb({ crumbs, className }: PageBreadcrumbProps) {
   return (
     <nav aria-label="Breadcrumb" className={cn('flex items-center gap-1 text-sm mb-5', className)}>
       {crumbs.map((crumb, i) => (
-        <span key={i} className="flex items-center gap-1">
+        <span key={crumb.to ?? crumb.label} className="flex items-center gap-1">
           {i > 0 && <ChevronRight className="h-3.5 w-3.5 text-muted-foreground/50 shrink-0" />}
           {crumb.to ? (
             <Link

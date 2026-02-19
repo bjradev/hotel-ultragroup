@@ -2,7 +2,7 @@ import type { HotelRepository } from '../../domain/hotel/HotelRepository'
 import type { Hotel } from '../../domain/hotel/Hotel'
 import { ValidationError } from '../../domain/shared/errors'
 
-export type HotelSearchParams = {
+type HotelSearchParams = {
   city: string
   checkIn: Date
   checkOut?: Date

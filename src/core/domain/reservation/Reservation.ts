@@ -18,8 +18,3 @@ export type Reservation = {
 }
 
 export type CreateReservationPayload = Omit<Reservation, 'id' | 'status' | 'createdAt' | 'updatedAt'>
-
-export function calculateNights(checkIn: Date, checkOut: Date): number {
-  const ms = checkOut.getTime() - checkIn.getTime()
-  return Math.ceil(ms / (1000 * 60 * 60 * 24))
-}

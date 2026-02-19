@@ -1,4 +1,3 @@
-import { useEffect } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import { ArrowLeft, MapPin, BedDouble, Calendar, Info } from 'lucide-react'
 import { Button } from '@/shared/components/ui/button'
@@ -37,7 +36,7 @@ function RoomCardSkeleton() {
 export default function HotelDetailPage() {
   const { hotelId = '' } = useParams<{ hotelId: string }>()
   const navigate = useNavigate()
-  const { checkIn, checkOut, setSelectedHotel } = useBookingStore()
+  const { checkIn, checkOut } = useBookingStore()
 
   const { data: hotel, isLoading: isLoadingHotel } = useTravelerHotelById(hotelId)
   const { data: rooms = [], isLoading: isLoadingRooms } = useAvailableRooms(
@@ -45,10 +44,6 @@ export default function HotelDetailPage() {
     checkIn,
     checkOut,
   )
-
-  useEffect(() => {
-    if (hotel) setSelectedHotel(hotel)
-  }, [hotel, setSelectedHotel])
 
   const hasCheckIn = Boolean(checkIn)
   const hasBothDates = hasCheckIn && Boolean(checkOut)
@@ -142,7 +137,7 @@ export default function HotelDetailPage() {
         {isLoadingRooms ? (
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
             {Array.from({ length: 3 }).map((_, i) => (
-              <RoomCardSkeleton key={i} />
+              <RoomCardSkeleton key={`room-skeleton-${i}`} />
             ))}
           </div>
         ) : rooms.length === 0 ? (
